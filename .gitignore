@@ -1,0 +1,21 @@
+# Local credentials and environment files
+.env
+.env.*
+!.env.example
+.envrc
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local build and test output
+/woovi-pix-tester
+/bin/
+/dist/
+*.test
+coverage.out
+
+# Editor and operating system files
+.DS_Store
+.idea/
+.vscode/
