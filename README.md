@@ -21,9 +21,37 @@ O AppID fica só no servidor; o navegador nunca o vê.
 ```bash
 export WOOVI_APP_ID='seu-app-id'
 # opcional: export WOOVI_BASE_URL=https://api.woovi.com   (produção — cuidado)
-go run .
+make dev
 # abra http://localhost:8080
 ```
+
+## Makefile
+
+Os comandos abaixo facilitam o desenvolvimento e a validação local. `make dev` exige `WOOVI_APP_ID` no ambiente; o Makefile não imprime nem grava esse valor.
+
+```bash
+make help
+make fmt
+make test
+make test-race
+make vet
+make lint-install  # opcional; baixa golangci-lint para bin/
+make lint
+make js-check
+make check
+make coverage
+make build
+```
+
+Para preparar um artefato de implantação, sem enviar arquivos a um servidor:
+
+```bash
+make package
+# Exemplo de compilação cruzada:
+make package TARGET_OS=linux TARGET_ARCH=amd64
+```
+
+O pacote `.tar.gz` fica em `dist/` e contém o binário e este README. O destino e o mecanismo de implantação não estão configurados neste projeto; o pacote precisa ser enviado e configurado conforme o ambiente escolhido.
 
 ## Webhook (opcional)
 

@@ -175,14 +175,27 @@ func (s *server) eventsSSE(w http.ResponseWriter, r *http.Request) {
 		s.mu.Unlock()
 	}()
 
-	send := func(ev webhookEvent) {
-		b, _ := json.Marshal(ev)
-		fmt.Fprintf(w, "data: %s\n\n", b)
+	send := func(ev webhookEvent) bool {
+		b, err := json.Marshal(ev)
+		if err != nil {
+			log.Printf("SSE event encode failed: %v", err)
+			return true
+		}
+		if _, err := fmt.Fprintf(w, "data: %s\n\n", b); err != nil {
+			return false
+		}
 		flusher.Flush()
+		return true
 	}
 	for _, ev := range backlog {
-		send(ev)
+		if !send(ev) {
+			return
+		}
 	}
+	if _, err := fmt.Fprint(w, ": connected\n\n"); err != nil {
+		return
+	}
+	flusher.Flush()
 	ping := time.NewTicker(25 * time.Second)
 	defer ping.Stop()
 	for {
@@ -190,9 +203,13 @@ func (s *server) eventsSSE(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case ev := <-ch:
-			send(ev)
+			if !send(ev) {
+				return
+			}
 		case <-ping.C:
-			fmt.Fprint(w, ": ping\n\n")
+			if _, err := fmt.Fprint(w, ": ping\n\n"); err != nil {
+				return
+			}
 			flusher.Flush()
 		}
 	}
@@ -221,7 +238,11 @@ func (s *server) forward(w http.ResponseWriter, method, path string, body any) {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("response body close failed: %v", err)
+		}
+	}()
 	ct := resp.Header.Get("Content-Type")
 	if ct == "" {
 		ct = "application/json"

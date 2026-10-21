@@ -1,230 +1,313 @@
 <!doctype html>
 <html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Woovi Pix Tester</title>
-<style>
-  :root {
-    --bg: #f6f7f5; --card: #fff; --ink: #1b1f1d; --muted: #66706b;
-    --line: #e2e5e3; --accent: #03d69d; --accent-ink: #04392a;
-    --warn: #c47a00; --err: #c0392b; --ok: #0a8f5f;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#121514; --card:#1b1f1d; --ink:#e8ece9; --muted:#9aa49f; --line:#2c322f; --accent-ink:#e6fff6; }
-  }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.45 system-ui, sans-serif; }
-  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 48px; }
-  header { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
-  h1 { font-size:22px; margin:0; }
-  .badge { font-size:12px; padding:2px 8px; border-radius:99px; border:1px solid var(--line); color:var(--muted); }
-  .badge.prod { border-color: var(--err); color: var(--err); }
-  .grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
-  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
-  .card h2 { font-size:15px; margin:0 0 12px; }
-  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
-  input { width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:8px; background:transparent; color:var(--ink); font:inherit; }
-  details { margin-top:10px; } summary { cursor:pointer; color:var(--muted); font-size:13px; }
-  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
-  button { padding:9px 14px; border-radius:8px; border:1px solid var(--line); background:transparent; color:var(--ink); font:inherit; cursor:pointer; }
-  button.primary { background:var(--accent); border-color:var(--accent); color:#04392a; font-weight:600; }
-  button:disabled { opacity:.5; cursor:default; }
-  .qr { display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
-  .qr img { width:180px; height:180px; background:#fff; border-radius:8px; border:1px solid var(--line); }
-  .kv { font-size:13px; display:grid; grid-template-columns:auto 1fr; gap:4px 10px; flex:1; min-width:200px; }
-  .kv dt { color:var(--muted); } .kv dd { margin:0; word-break:break-all; }
-  .status { font-weight:700; }
-  .status.ACTIVE { color:var(--warn); } .status.COMPLETED { color:var(--ok); } .status.EXPIRED { color:var(--err); }
-  textarea { width:100%; min-height:64px; font:12px ui-monospace, monospace; border:1px solid var(--line); border-radius:8px; padding:8px; background:transparent; color:var(--ink); resize:vertical; }
-  pre { font:12px/1.4 ui-monospace, monospace; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px; overflow:auto; max-height:320px; margin:0; }
-  .muted { color:var(--muted); font-size:13px; }
-  .err { color:var(--err); font-size:13px; margin-top:8px; white-space:pre-wrap; }
-  .ev { border-top:1px solid var(--line); padding:8px 0; } .ev:first-child { border-top:0; }
-  .ev b { font-size:13px; } .ev time { color:var(--muted); font-size:12px; margin-left:6px; }
-  .full { grid-column: 1 / -1; }
-</style>
-</head>
-<body>
-<main>
-  <header>
-    <h1>Woovi Pix Tester</h1>
-    <span id="env" class="badge">…</span>
-  </header>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#f2f6f3">
+    <meta name="description" content="Ferramenta local para criar e acompanhar cobranças Pix de teste na Woovi.">
+    <title>Woovi Pix Tester</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Pular para o conteúdo</a>
 
-  <div class="grid">
-    <section class="card">
-      <h2>Nova cobrança</h2>
-      <form id="form">
-        <label for="valor">Valor (R$)</label>
-        <input id="valor" type="number" min="0.01" step="0.01" value="1.00" required>
-        <label for="comment">Comentário (aparece no QR)</label>
-        <input id="comment" placeholder="teste pix" maxlength="140">
-        <label for="expires">Expira em (segundos, opcional)</label>
-        <input id="expires" type="number" min="1" placeholder="padrão da conta">
-        <details>
-          <summary>Cliente (opcional)</summary>
-          <p class="muted">Se preencher, envie nome + (CPF/CNPJ, e-mail ou telefone).</p>
-          <label for="cname">Nome</label><input id="cname">
-          <label for="ctax">CPF/CNPJ</label><input id="ctax">
-          <label for="cemail">E-mail</label><input id="cemail" type="email">
-          <label for="cphone">Telefone</label><input id="cphone" placeholder="5511999999999">
-        </details>
-        <div class="row"><button class="primary" id="create">Criar cobrança</button></div>
-        <div id="formErr" class="err"></div>
-      </form>
-    </section>
+    <main id="main" class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Woovi Pix Tester — início">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3.5 19.5 8v8L12 20.5 4.5 16V8L12 3.5Z"></path>
+              <path d="m8.5 12 2.2 2.2 4.8-5"></path>
+            </svg>
+          </span>
+          <span class="brand-copy">
+            <span class="brand-overline">FERRAMENTA DE DESENVOLVIMENTO</span>
+            <h1>Woovi Pix Tester</h1>
+          </span>
+        </a>
 
-    <section class="card" id="chargeCard">
-      <h2>Cobrança</h2>
-      <p class="muted" id="empty">Crie uma cobrança para ver o QR Code aqui.</p>
-      <div id="charge" hidden>
-        <div class="qr">
-          <img id="qrImg" alt="QR Code Pix">
-          <dl class="kv">
-            <dt>Status</dt><dd><span id="status" class="status"></span></dd>
-            <dt>Valor</dt><dd id="value"></dd>
-            <dt>correlationID</dt><dd id="corr"></dd>
-            <dt>identifier</dt><dd id="ident"></dd>
-            <dt>Expira</dt><dd id="exp"></dd>
-            <dt>Link</dt><dd><a id="link" target="_blank" rel="noopener">abrir checkout</a></dd>
-          </dl>
+        <div id="env" class="env-badge" data-env="loading" role="status" aria-live="polite">
+          <span class="env-dot" aria-hidden="true"></span>
+          <span class="env-copy">
+            <span id="envName">Carregando ambiente…</span>
+            <span id="envSeparator" class="env-separator" aria-hidden="true" hidden> · </span>
+            <span id="envBase" class="env-base-url" hidden></span>
+          </span>
         </div>
-        <label for="brcode">Pix copia e cola</label>
-        <textarea id="brcode" readonly></textarea>
-        <div class="row">
-          <button id="copy">Copiar</button>
-          <button id="refresh">Atualizar status</button>
-          <button id="simulate" class="primary">Simular pagamento</button>
+      </header>
+
+      <section class="page-intro" aria-labelledby="page-title">
+        <div class="page-intro-copy">
+          <p class="eyebrow">ÁREA DE TESTES</p>
+          <h2 id="page-title">Teste pagamentos Pix sem fricção.</h2>
+          <p>Gere uma cobrança, acompanhe o pagamento e inspecione os eventos da integração em um só lugar.</p>
         </div>
-        <p class="muted" id="poll"></p>
-        <div id="chargeErr" class="err"></div>
+        <div class="secure-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="4.5" y="10" width="15" height="11" rx="2.5"></rect>
+            <path d="M8 10V7.5a4 4 0 0 1 8 0V10m-4 4v3"></path>
+          </svg>
+          <span>AppID protegido no servidor</span>
+        </div>
+      </section>
+
+      <div class="workspace-grid">
+        <section class="card form-card" aria-labelledby="create-title">
+          <div class="card-heading">
+            <span class="step-mark" aria-hidden="true">01</span>
+            <div>
+              <p class="eyebrow">INÍCIO</p>
+              <h2 id="create-title">Nova cobrança</h2>
+            </div>
+          </div>
+          <p class="card-description">Defina o valor e gere um QR Code Pix para sua conta de teste.</p>
+
+          <form id="form">
+            <div class="field">
+              <label for="valor">Valor da cobrança <span class="required-mark" aria-hidden="true">*</span></label>
+              <div class="currency-input">
+                <span class="currency-symbol" aria-hidden="true">R$</span>
+                <input id="valor" type="number" min="0.01" step="0.01" value="1.00" inputmode="decimal" required aria-describedby="valueHint">
+              </div>
+              <p id="valueHint" class="field-hint">Informe um valor maior que zero.</p>
+            </div>
+
+            <div class="field">
+              <label for="comment">Descrição <span class="field-hint-inline">opcional</span></label>
+              <input id="comment" maxlength="140" placeholder="Ex.: pedido de teste" autocomplete="off">
+            </div>
+
+            <div class="field">
+              <label for="expires">Expiração <span class="field-hint-inline">opcional</span></label>
+              <input id="expires" type="number" min="1" step="1" inputmode="numeric" placeholder="Padrão da conta" aria-describedby="expiryHint">
+              <p id="expiryHint" class="field-hint">Tempo em segundos.</p>
+            </div>
+
+            <details class="customer-details">
+              <summary>
+                <span>Dados do cliente</span>
+                <span class="customer-optional">opcional</span>
+              </summary>
+              <p class="customer-note">Preencha o nome e pelo menos um identificador.</p>
+              <div class="customer-fields">
+                <div class="field">
+                  <label for="cname">Nome</label>
+                  <input id="cname" autocomplete="name">
+                </div>
+                <div class="field">
+                  <label for="ctax">CPF/CNPJ</label>
+                  <input id="ctax" inputmode="numeric" autocomplete="off">
+                </div>
+                <div class="field">
+                  <label for="cemail">E-mail</label>
+                  <input id="cemail" type="email" autocomplete="email">
+                </div>
+                <div class="field">
+                  <label for="cphone">Telefone</label>
+                  <input id="cphone" type="tel" inputmode="tel" placeholder="5511999999999" autocomplete="tel">
+                </div>
+              </div>
+            </details>
+
+            <p id="formErr" class="feedback" role="alert" aria-live="assertive" hidden></p>
+
+            <button class="button button-primary button-full" id="create" type="submit">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 5v14m-7-7h14"></path>
+              </svg>
+              <span id="createLabel">Criar cobrança</span>
+            </button>
+            <p class="privacy-note">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3 19 6v5c0 4.7-2.8 8-7 10-4.2-2-7-5.3-7-10V6l7-3Z"></path>
+                <path d="m9 12 2 2 4-4"></path>
+              </svg>
+              <span>O AppID fica no servidor e não é enviado ao navegador.</span>
+            </p>
+          </form>
+        </section>
+
+        <section id="chargeCard" class="card charge-card" aria-labelledby="charge-title">
+          <div class="card-heading card-heading-space">
+            <div class="card-heading">
+              <span class="step-mark" aria-hidden="true">02</span>
+              <div>
+                <p class="eyebrow">ACOMPANHAMENTO</p>
+                <h2 id="charge-title">Cobrança</h2>
+              </div>
+            </div>
+            <span class="panel-kicker">SEU PIX</span>
+          </div>
+
+          <div id="empty" class="empty-state">
+            <div class="empty-art" aria-hidden="true">
+              <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="5" y="5" width="22" height="22" rx="5"></rect>
+                <path d="M10 10h4v4h-4zm8 0h4v4h-4zm-8 8h4v4h-4zm8 0h4m-4 4h4m-2-4v4"></path>
+              </svg>
+            </div>
+            <h3>A cobrança aparece aqui</h3>
+            <p>Preencha o valor ao lado e crie uma cobrança para gerar o QR Code e o Pix copia e cola.</p>
+            <span class="empty-hint">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 5v14m-7-7h14"></path>
+              </svg>
+              Pronto para começar
+            </span>
+          </div>
+
+          <div id="charge" hidden>
+            <div class="charge-banner">
+              <div>
+                <p class="eyebrow">COBRANÇA GERADA</p>
+                <h3>Leia o QR Code</h3>
+              </div>
+              <span id="status" class="status-pill" role="status" aria-live="polite">Aguardando</span>
+            </div>
+
+            <div class="charge-info-grid">
+              <div class="qr-wrap">
+                <div class="qr-surface">
+                  <img id="qrImg" alt="QR Code Pix da cobrança" hidden>
+                  <span id="qrPlaceholder" class="qr-placeholder">QR Code não disponível</span>
+                </div>
+                <p class="qr-caption">Escaneie com o app do seu banco.</p>
+              </div>
+
+              <dl class="kv">
+                <div class="kv-item kv-item-value">
+                  <dt>Valor</dt>
+                  <dd id="value">—</dd>
+                </div>
+                <div class="kv-item">
+                  <dt>Status na API</dt>
+                  <dd id="statusText">—</dd>
+                </div>
+                <div class="kv-item">
+                  <dt>Expira em</dt>
+                  <dd id="exp">—</dd>
+                </div>
+                <div class="kv-item">
+                  <dt>Correlation ID</dt>
+                  <dd><code id="corr">—</code></dd>
+                </div>
+                <div class="kv-item">
+                  <dt>Identificador</dt>
+                  <dd><code id="ident">—</code></dd>
+                </div>
+                <div class="kv-item kv-item-link">
+                  <dt>Checkout</dt>
+                  <dd><a id="link" class="checkout-link" target="_blank" rel="noopener noreferrer" hidden>Abrir página de pagamento</a><span id="linkUnavailable">Indisponível</span></dd>
+                </div>
+              </dl>
+            </div>
+
+            <div class="copy-section">
+              <div class="copy-heading">
+                <label for="brcode">Pix copia e cola</label>
+                <span id="copyHint" class="inline-hint" aria-live="polite">Código pronto para copiar</span>
+              </div>
+              <div class="copy-field-wrap">
+                <textarea id="brcode" class="brcode" rows="3" readonly spellcheck="false" aria-label="Código Pix para copiar e colar"></textarea>
+                <button id="copy" class="button button-secondary copy-button" type="button" aria-label="Copiar código Pix">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="8" y="8" width="12" height="12" rx="2"></rect>
+                    <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path>
+                  </svg>
+                  <span id="copyLabel">Copiar</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="action-row">
+              <button id="refresh" class="button button-secondary" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M20 7v5h-5M4 17v-5h5"></path>
+                  <path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2"></path>
+                </svg>
+                Atualizar status
+              </button>
+              <button id="simulate" class="button button-primary" type="button" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M5 12h14m-6-6 6 6-6 6"></path>
+                </svg>
+                <span id="simulateLabel">Simular pagamento</span>
+              </button>
+            </div>
+            <p id="poll" class="poll-message" role="status" aria-live="polite"></p>
+            <p id="chargeErr" class="feedback" role="alert" aria-live="assertive" hidden></p>
+          </div>
+        </section>
       </div>
-    </section>
 
-    <section class="card">
-      <h2>Webhooks recebidos</h2>
-      <p class="muted">Cadastre <code id="hookUrl"></code> (exposto via túnel) como webhook na Woovi.</p>
-      <div id="events"><p class="muted">Nenhum ainda.</p></div>
-    </section>
+      <section class="diagnostics-section" aria-labelledby="diagnostics-title">
+        <div class="section-intro">
+          <div>
+            <p class="eyebrow">OBSERVABILIDADE</p>
+            <h2 id="diagnostics-title">Diagnóstico da integração</h2>
+          </div>
+          <p>Acompanhe os webhooks recebidos e consulte a resposta mais recente da API.</p>
+        </div>
 
-    <section class="card">
-      <h2>Última resposta da API</h2>
-      <pre id="raw">—</pre>
-    </section>
-  </div>
-</main>
+        <div class="diagnostics-grid">
+          <section class="card diagnostic-card" aria-labelledby="webhook-title">
+            <div class="card-heading card-heading-space">
+              <div class="card-heading">
+                <span class="diagnostic-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M7 8a5 5 0 0 1 10 0v1a3 3 0 0 0 3 3h1"></path>
+                    <path d="M17 16a5 5 0 0 1-10 0v-1a3 3 0 0 0-3-3H3"></path>
+                    <circle cx="7" cy="8" r="1"></circle>
+                    <circle cx="17" cy="16" r="1"></circle>
+                  </svg>
+                </span>
+                <div>
+                  <p class="eyebrow">EVENTOS</p>
+                  <h2 id="webhook-title">Webhooks recebidos</h2>
+                </div>
+              </div>
+              <span id="webhookState" class="webhook-state" data-state="connecting" role="status" aria-live="polite">
+                <span class="webhook-dot" aria-hidden="true"></span>
+                <span id="webhookStateLabel">Conectando</span>
+              </span>
+            </div>
 
-<script>
-const $ = (id) => document.getElementById(id);
-let current = null, pollTimer = null;
-const brl = (c) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            <p class="diagnostic-copy">Cadastre este endereço na Woovi. Para receber eventos externos, exponha a porta local por um túnel.</p>
+            <code id="hookUrl" class="webhook-endpoint"></code>
 
-async function api(method, path, body) {
-  const res = await fetch(path, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : {},
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await res.text();
-  let data; try { data = JSON.parse(text); } catch { data = text; }
-  $('raw').textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-  if (!res.ok) {
-    const msg = data?.error || data?.errors?.map(e => e.message).join(', ') || text || res.statusText;
-    throw new Error(`${res.status}: ${msg}`);
-  }
-  return data;
-}
+            <div id="events" class="events-list" role="log" aria-label="Eventos de webhook" aria-live="polite" aria-relevant="additions">
+              <div class="events-empty" data-events-empty>Nenhum webhook recebido ainda.</div>
+            </div>
+          </section>
 
-function render(charge) {
-  current = charge;
-  $('empty').hidden = true; $('charge').hidden = false;
-  $('qrImg').src = charge.qrCodeImage || '';
-  $('status').textContent = charge.status; $('status').className = 'status ' + charge.status;
-  $('value').textContent = brl(charge.value);
-  $('corr').textContent = charge.correlationID;
-  $('ident').textContent = charge.identifier || charge.transactionID || '—';
-  $('exp').textContent = charge.expiresDate ? new Date(charge.expiresDate).toLocaleString('pt-BR') : '—';
-  $('link').href = charge.paymentLinkUrl || '#';
-  $('brcode').value = charge.brCode || '';
-  $('simulate').disabled = charge.status !== 'ACTIVE';
-  if (charge.status === 'ACTIVE') startPolling(); else stopPolling();
-}
+          <section class="card diagnostic-card response-card" aria-labelledby="response-title">
+            <div class="card-heading card-heading-space">
+              <div class="card-heading">
+                <span class="diagnostic-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m8 8-4 4 4 4m8-8 4 4-4 4m-3-11-2 14"></path>
+                  </svg>
+                </span>
+                <div>
+                  <p class="eyebrow">RESPOSTA BRUTA</p>
+                  <h2 id="response-title">Última resposta da API</h2>
+                </div>
+              </div>
+              <span id="responseState" class="response-state" data-state="idle">Aguardando</span>
+            </div>
 
-function startPolling() {
-  if (pollTimer) return;
-  $('poll').textContent = 'Consultando status a cada 3s…';
-  pollTimer = setInterval(refresh, 3000);
-}
-function stopPolling() {
-  clearInterval(pollTimer); pollTimer = null; $('poll').textContent = '';
-}
+            <pre id="raw" class="response-json" tabindex="0" aria-label="Conteúdo da última resposta da API">Nenhuma resposta para exibir.</pre>
+          </section>
+        </div>
+      </section>
 
-async function refresh() {
-  if (!current) return;
-  try {
-    const data = await api('GET', '/api/charge/' + encodeURIComponent(current.correlationID));
-    render(data.charge);
-    $('chargeErr').textContent = '';
-  } catch (e) { $('chargeErr').textContent = e.message; stopPolling(); }
-}
-
-$('form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  $('formErr').textContent = '';
-  const value = Math.round(parseFloat($('valor').value) * 100);
-  const body = { value };
-  if ($('comment').value) body.comment = $('comment').value;
-  if ($('expires').value) body.expiresIn = parseInt($('expires').value, 10);
-  const c = { name: $('cname').value, taxID: $('ctax').value, email: $('cemail').value, phone: $('cphone').value };
-  Object.keys(c).forEach(k => !c[k] && delete c[k]);
-  if (Object.keys(c).length) body.customer = c;
-
-  $('create').disabled = true;
-  try {
-    stopPolling();
-    const data = await api('POST', '/api/charge', body);
-    render(data.charge);
-  } catch (err) { $('formErr').textContent = err.message; }
-  finally { $('create').disabled = false; }
-});
-
-$('refresh').onclick = refresh;
-$('copy').onclick = async () => {
-  try { await navigator.clipboard.writeText($('brcode').value); $('copy').textContent = 'Copiado!'; }
-  catch { $('brcode').select(); }
-  setTimeout(() => $('copy').textContent = 'Copiar', 1500);
-};
-$('simulate').onclick = async () => {
-  const id = current?.identifier || current?.transactionID;
-  if (!id) return;
-  $('simulate').disabled = true; $('chargeErr').textContent = '';
-  try { await api('POST', `/api/charge/${encodeURIComponent(id)}/simulate`); await refresh(); }
-  catch (e) { $('chargeErr').textContent = e.message + '\nSe falhar, simule pelo painel: detalhe da cobrança → Simular pagamento.'; $('simulate').disabled = false; }
-};
-
-// Webhooks via SSE
-const evBox = $('events');
-new EventSource('/api/events').onmessage = (m) => {
-  const ev = JSON.parse(m.data);
-  if (evBox.querySelector('.muted')) evBox.innerHTML = '';
-  const div = document.createElement('div'); div.className = 'ev';
-  div.innerHTML = `<b></b><time></time><pre></pre>`;
-  div.querySelector('b').textContent = ev.event || '(sem event)';
-  div.querySelector('time').textContent = new Date(ev.receivedAt).toLocaleTimeString('pt-BR');
-  div.querySelector('pre').textContent = JSON.stringify(ev.payload, null, 2);
-  evBox.prepend(div);
-  const cid = ev.payload?.charge?.correlationID;
-  if (current && cid === current.correlationID) refresh();
-};
-
-$('hookUrl').textContent = location.origin + '/webhook';
-api('GET', '/api/config').then(c => {
-  $('env').textContent = c.sandbox ? 'sandbox · ' + c.baseURL : 'PRODUÇÃO · ' + c.baseURL;
-  if (!c.sandbox) $('env').classList.add('prod');
-  $('raw').textContent = '—';
-});
-</script>
-</body>
+      <footer class="page-footer">
+        <span>Woovi Pix Tester · ferramenta local de desenvolvimento</span>
+        <a href="https://github.com/lucaswilliameufrasio/woovi-pix-tester" target="_blank" rel="noopener noreferrer">Código-fonte</a>
+      </footer>
+    </main>
+  </body>
 </html>
