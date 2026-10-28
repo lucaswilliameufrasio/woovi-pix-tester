@@ -11,6 +11,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/rand"
 	"embed"
@@ -22,8 +23,13 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/term"
 )
 
 //go:embed static
@@ -46,9 +52,19 @@ type webhookEvent struct {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "setup" {
+		if err := runSetup(os.Stdin, os.Stdout); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+	if err := loadDotEnv(".env"); err != nil {
+		log.Fatalf("não foi possível ler .env: %v", err)
+	}
+
 	appID := os.Getenv("WOOVI_APP_ID")
 	if appID == "" {
-		log.Fatal("defina WOOVI_APP_ID (AppID da Woovi)")
+		log.Fatal("execute 'make setup' para configurar o AppID da Woovi")
 	}
 	base := envOr("WOOVI_BASE_URL", "https://api.woovi-sandbox.com")
 	port := envOr("PORT", "8080")
@@ -72,6 +88,110 @@ func main() {
 
 	log.Printf("woovi-pix-tester em http://localhost:%s (API: %s)", port, base)
 	log.Fatal(http.ListenAndServe(":"+port, logRequests(mux)))
+}
+
+func runSetup(input *os.File, output io.Writer) error {
+	configPath := ".env"
+	if _, err := os.Stat(configPath); err == nil {
+		return fmt.Errorf(".env já existe; remova-o manualmente se quiser configurar novamente")
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("não foi possível verificar .env: %w", err)
+	}
+
+	if _, err := fmt.Fprintln(output, "Configuração Woovi (use o AppID do sandbox)."); err != nil {
+		return fmt.Errorf("não foi possível mostrar o assistente: %w", err)
+	}
+	if _, err := fmt.Fprint(output, "AppID: "); err != nil {
+		return fmt.Errorf("não foi possível mostrar o assistente: %w", err)
+	}
+	appIDBytes, err := term.ReadPassword(int(input.Fd()))
+	if _, outputErr := fmt.Fprintln(output); outputErr != nil {
+		return fmt.Errorf("não foi possível mostrar o assistente: %w", outputErr)
+	}
+	if err != nil {
+		return fmt.Errorf("não foi possível ler o AppID com segurança: %w", err)
+	}
+	appID := strings.TrimSpace(string(appIDBytes))
+	if appID == "" {
+		return fmt.Errorf("AppID não pode ficar vazio")
+	}
+
+	reader := bufio.NewReader(input)
+	baseURL, err := promptValue(output, reader, "URL da API", "https://api.woovi-sandbox.com")
+	if err != nil {
+		return err
+	}
+	port, err := promptValue(output, reader, "Porta local", "8080")
+	if err != nil {
+		return err
+	}
+
+	contents := fmt.Sprintf("WOOVI_APP_ID=%q\nWOOVI_BASE_URL=%q\nPORT=%q\n", appID, baseURL, port)
+	file, err := os.OpenFile(configPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return fmt.Errorf("não foi possível criar .env: %w", err)
+	}
+	if _, err := io.WriteString(file, contents); err != nil {
+		_ = file.Close()
+		_ = os.Remove(configPath)
+		return fmt.Errorf("não foi possível gravar .env: %w", err)
+	}
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("não foi possível fechar .env: %w", err)
+	}
+	if _, err := fmt.Fprintln(output, "Configuração salva em .env (permissão 0600). Rode 'make dev' para iniciar."); err != nil {
+		return fmt.Errorf("configuração salva, mas não foi possível mostrar confirmação: %w", err)
+	}
+	return nil
+}
+
+func promptValue(output io.Writer, input *bufio.Reader, label, defaultValue string) (string, error) {
+	if _, err := fmt.Fprintf(output, "%s [%s]: ", label, defaultValue); err != nil {
+		return "", fmt.Errorf("não foi possível mostrar o assistente: %w", err)
+	}
+	value, err := input.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return "", fmt.Errorf("não foi possível ler %s: %w", label, err)
+	}
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return defaultValue, nil
+	}
+	return value, nil
+}
+
+func loadDotEnv(path string) error {
+	contents, err := os.ReadFile(filepath.Clean(path))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, line := range strings.Split(string(contents), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, value, found := strings.Cut(line, "=")
+		if !found {
+			return fmt.Errorf("linha inválida em %s", path)
+		}
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if len(value) >= 2 && value[0] == '"' && value[len(value)-1] == '"' {
+			value, err = strconv.Unquote(value)
+			if err != nil {
+				return fmt.Errorf("valor inválido em %s", path)
+			}
+		}
+		if _, exists := os.LookupEnv(key); !exists {
+			if err := os.Setenv(key, value); err != nil {
+				return fmt.Errorf("configuração inválida em %s", path)
+			}
+		}
+	}
+	return nil
 }
 
 func (s *server) config(w http.ResponseWriter, _ *http.Request) {

@@ -19,15 +19,21 @@ O AppID fica só no servidor; o navegador nunca o vê.
 ## Rodar
 
 ```bash
-export WOOVI_APP_ID='seu-app-id'
-# opcional: export WOOVI_BASE_URL=https://api.woovi.com   (produção — cuidado)
+make setup
 make dev
 # abra http://localhost:8080
 ```
 
+O assistente pede o AppID sem exibi-lo enquanto você digita e salva as
+configurações em `.env`, ignorado pelo Git e criado com permissão `0600`.
+Use o AppID do sandbox; a URL padrão também aponta para o sandbox. Para
+configurar novamente, remova `.env` manualmente e rode `make setup`.
+Variáveis de ambiente `WOOVI_APP_ID`, `WOOVI_BASE_URL` e `PORT`, quando
+definidas, têm prioridade sobre `.env`. Não use o AppID de produção para testes.
+
 ## Makefile
 
-Os comandos abaixo facilitam o desenvolvimento e a validação local. `make dev` exige `WOOVI_APP_ID` no ambiente; o Makefile não imprime nem grava esse valor.
+Os comandos abaixo facilitam o desenvolvimento e a validação local.
 
 ```bash
 make help

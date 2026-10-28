@@ -21,12 +21,13 @@ else
 EXE_SUFFIX :=
 endif
 
-.PHONY: help dev run fmt fmt-check test test-race vet lint-install lint js-check check build package coverage
+.PHONY: help setup dev run fmt fmt-check test test-race vet lint-install lint js-check check build package coverage
 
 help: ## Show available development, validation, and packaging targets
 	@printf '%s\n' \
 		'Development:' \
-		'  make dev                         Run the local server (WOOVI_APP_ID required)' \
+		'  make setup                       Configure Woovi credentials in a protected .env file' \
+		'  make dev                         Run the local server' \
 		'  make run                         Alias for make dev' \
 		'' \
 		'Validation:' \
@@ -46,8 +47,10 @@ help: ## Show available development, validation, and packaging targets
 		'  make package                     Create a tar.gz artifact in dist/' \
 		'  make package TARGET_OS=linux TARGET_ARCH=amd64'
 
-dev: ## Start the local server; provide WOOVI_APP_ID in the environment
-	@test -n "$$WOOVI_APP_ID" || { printf '%s\n' 'WOOVI_APP_ID is required; set a sandbox AppID in your environment.' >&2; exit 1; }
+setup: ## Interactively configure the local .env file
+	$(GO) run . setup
+
+dev: ## Start the local server using .env or environment variables
 	$(GO) run .
 
 run: dev ## Alias for dev
